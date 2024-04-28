@@ -19,6 +19,7 @@ namespace Sdcb.WenXinQianFan;
 /// </remarks>
 public class QianFanClient : IDisposable
 {
+    private const string BaseUrl = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat";
     private readonly HttpClient _http = new();
     private readonly string _apiKey, _apiSecret;
     private TokenManageContext? _token;
@@ -34,7 +35,7 @@ public class QianFanClient : IDisposable
         _apiSecret = apiSecret ?? throw new ArgumentNullException(nameof(apiSecret));
     }
 
-    async Task EnsureAuthToken()
+    async Task EnsureAuthTokenAsync()
     {
         if (_token == null || !_token.IsValid)
         {
@@ -62,18 +63,18 @@ public class QianFanClient : IDisposable
     /// <summary>
     /// Sends a chat message to the API and retrieves the response.
     /// </summary>
-    /// <param name="model">The model to use for the chat.</param>
+    /// <param name="modelId">The model to use for the chat.</param>
     /// <param name="messages">The messages to send to the chat.</param>
     /// <param name="options">The options to configure the chat call.</param>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
     /// <returns>Returns a <see cref="Task"/> representing the asynchronous operation.</returns>
-    public async Task<ChatResponse> ChatAsync(KnownModel model, IEnumerable<ChatMessage> messages, ChatRequestParameters? options = null, CancellationToken cancellationToken = default)
+    public async Task<ChatResponse> ChatAsync(string modelId, IEnumerable<ChatMessage> messages, ChatRequestParameters? options = null, CancellationToken cancellationToken = default)
     {
-        await EnsureAuthToken();
+        await EnsureAuthTokenAsync();
 
         StringContent jsonContent = new(JsonSerializer.Serialize(InternalChatRequest.FromOptions(messages, options, stream: false)), Encoding.UTF8, "application/json");
 
-        HttpResponseMessage resp = await _http.PostAsync($"{model.Url}?access_token={_token!.Token.AccessToken}", jsonContent, cancellationToken);
+        HttpResponseMessage resp = await _http.PostAsync($"{BaseUrl}/{modelId}?access_token={_token!.Token.AccessToken}", jsonContent, cancellationToken);
 
         if (resp.IsSuccessStatusCode)
         {
@@ -89,16 +90,16 @@ public class QianFanClient : IDisposable
     /// <summary>
     /// Streams chat messages to the API and retrieves the responses.
     /// </summary>
-    /// <param name="model">The model to use for the chat.</param>
+    /// <param name="modelId">The model to use for the chat.</param>
     /// <param name="messages">The messages to send to the chat.</param>
     /// <param name="options">The options to configure the chat call.</param>
     /// <param name="cancellationToken">The cancellation token to cancel operation.</param>
     /// <returns>Returns an asynchronous sequence of <see cref="ChatResponse"/>.</returns>
-    public async IAsyncEnumerable<StreamedChatResponse> ChatAsStreamAsync(KnownModel model, IEnumerable<ChatMessage> messages, ChatRequestParameters? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    public async IAsyncEnumerable<StreamedChatResponse> ChatAsStreamAsync(string modelId, IEnumerable<ChatMessage> messages, ChatRequestParameters? options = null, [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        await EnsureAuthToken();
+        await EnsureAuthTokenAsync();
 
-        HttpResponseMessage resp = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"{model.Url}?access_token={_token!.Token.AccessToken}")
+        HttpResponseMessage resp = await _http.SendAsync(new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/{modelId}?access_token={_token!.Token.AccessToken}")
         {
             Content = new StringContent(JsonSerializer.Serialize(InternalChatRequest.FromOptions(messages, options, stream: true)))
         }, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
